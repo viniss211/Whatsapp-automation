@@ -1,5 +1,7 @@
 import time
 import pandas as pd
+import tkinter as tk
+from tkinter import filedialog, messagebox
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
@@ -7,103 +9,103 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from webdriver_manager.chrome import ChromeDriverManager
+from tqdm import tqdm
+from threading import Thread
 
-# Configuração do WebDriver
-chrome_options = Options()
-chrome_options.add_argument("--user-data-dir=C:\\Users\\vinis\\AppData\\Local\\Google\\Chrome\\User Data\\Profile_Automacao")
-chrome_options.add_argument("--start-maximized")
+def escolher_arquivo():
+    arquivo = filedialog.askopenfilename(filetypes=[("Arquivos Excel", "*.xlsx")])
+    if arquivo:
+        entry_arquivo.delete(0, tk.END)
+        entry_arquivo.insert(0, arquivo)
 
-# Iniciar WebDriver
-service = Service(ChromeDriverManager().install())
-driver = webdriver.Chrome(service=service, options=chrome_options)
-
-# Ler planilha e renomear coluna corretamente
-df = pd.read_excel("grupos.xlsx", header=None)
-df.columns = ["Link"]
-df["Link"] = df["Link"].astype(str).str.strip()  # Remove espaços extras
-
-# Função para verificar se o WhatsApp Web carregou
-def esperar_whatsapp_carregar():
-    try:
-        print("[Verificação] Checando se o WhatsApp Web carregou completamente...")
-        WebDriverWait(driver, 30).until(
-            EC.presence_of_element_located((By.XPATH, "//div[contains(@aria-label, 'Caixa de texto para pesquisa')]"))
-        )
-        print("[OK] WhatsApp Web carregado com sucesso!")
-    except:
-        print("[Erro] O WhatsApp Web travou na tela de carregamento! Tentando recarregar...")
-        driver.refresh()  # Recarrega a página
-        time.sleep(15)  # Aguarda mais tempo após recarregar
-
-# Percorrer os links e entrar nos grupos
-for index, row in df.iterrows():
-    link = row["Link"]
+def iniciar_automacao():
+    arquivo = entry_arquivo.get()
+    if not arquivo:
+        messagebox.showerror("Erro", "Escolha um arquivo Excel contendo os links!")
+        return
     
+    thread = Thread(target=executar_bot, args=(arquivo,))
+    thread.start()
+
+def executar_bot(arquivo):
     try:
-        print(f"\n[Ação] Acessando o link: {link}")
-        driver.get(link)
-
-        print("[Aguardando] Esperando 15 segundos para carregamento completo...")
-        time.sleep(15)
-
-        # Clicar no botão "Juntar-se à conversa"
-        try:
-            print("[Aguardando] Procurando botão 'Juntar-se à conversa'...")
-            entrar_botao = WebDriverWait(driver, 25).until(
-                EC.element_to_be_clickable((By.XPATH, "//a[@id='action-button']"))
-            )
-            print("[Clique] Botão encontrado! Tentando clicar...")
-            driver.execute_script("arguments[0].click();", entrar_botao)
-            
-            print("[Aguardando] Aguardando 15 segundos para transição...")
-            time.sleep(15)
-            
-            # Se aparecer a opção "Usar o WhatsApp Web"
-            try:
-                print("[Verificação] Checando se a opção 'Usar o WhatsApp Web' apareceu...")
-                usar_web = WebDriverWait(driver, 15).until(
-                    EC.element_to_be_clickable((By.XPATH, "//a[contains(@href,'web.whatsapp.com/accept')]"))
-                )
-                print("[Clique] Alternativa 'Usar o WhatsApp Web' detectada! Clicando...")
-                driver.execute_script("arguments[0].click();", usar_web)
-                
-                print("[Aguardando] Aguardando 20 segundos para carregamento do WhatsApp Web...")
-                time.sleep(20)
-
-            except:
-                print("[OK] Não foi necessário clicar em 'usar o WhatsApp Web'.")
-
-            # Verifica se o WhatsApp Web realmente carregou antes de continuar
-            esperar_whatsapp_carregar()
-
-            # **Novo Passo:** Clicar no botão "Aderir ao grupo"
-            try:
-                print("[Aguardando] Esperando 15 segundos antes de procurar o botão 'Aderir ao grupo'...")
-                time.sleep(15)
-
-                print("[Procurando] Buscando botão 'Aderir ao grupo'...")
-                aderir_botao = WebDriverWait(driver, 25).until(
-                    EC.element_to_be_clickable((By.XPATH, "//button//div[contains(text(),'Aderir ao grupo')]"))
-                )
-                print("[Clique] Botão 'Aderir ao grupo' encontrado! Clicando...")
-                driver.execute_script("arguments[0].click();", aderir_botao)
-                print("✅ [Sucesso] Agora você faz parte do grupo!")
-
-                print("[Aguardando] Esperando 20 segundos antes de prosseguir para o próximo grupo...")
-                time.sleep(20)
-                
-            except Exception as e:
-                print(f"[Erro] Não foi possível clicar em 'Aderir ao grupo': {e}")
-
-        except Exception as e:
-            print(f"[Erro] Não foi possível clicar em 'Juntar-se à conversa': {e}")
-
-        print("[Pausa] Esperando 15 segundos antes do próximo link...")
-        time.sleep(15)  # Tempo extra antes de acessar o próximo grupo
+        df = pd.read_excel(arquivo, header=None)
+        df.columns = ["Link"]
+        df["Link"] = df["Link"].astype(str).str.strip()
+        links = df["Link"].dropna().tolist()
         
-    except Exception as e:
-        print(f"[Erro] Falha ao processar o link: {e}")
+        chrome_options = Options()
+        chrome_options.add_argument("--start-maximized")
+        chrome_options.add_argument("--disable-blink-features=AutomationControlled")
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option("useAutomationExtension", False)
+        chrome_options.add_argument("--user-data-dir=C:\\Users\\vinis\\AppData\\Local\\Google\\Chrome\\User Data\\Profile_Automacao")
 
-# Fechar navegador
-print("\n[FIM] Processo finalizado! Fechando navegador...")
-driver.quit()
+        service = Service(ChromeDriverManager().install())
+        driver = webdriver.Chrome(service=service, options=chrome_options)
+        
+        driver.get("https://web.whatsapp.com")
+        messagebox.showinfo("Ação necessária", "Escaneie o QR Code no WhatsApp Web e clique em OK para continuar...")
+
+        for link in tqdm(links, desc="Processando grupos", unit="grupo"):
+            try:
+                driver.get(link)
+                time.sleep(15)
+                
+                try:
+                    entrar_botao = WebDriverWait(driver, 20).until(
+                        EC.element_to_be_clickable((By.XPATH, "//a[@id='action-button']"))
+                    )
+                    driver.execute_script("arguments[0].click();", entrar_botao)
+                    time.sleep(5)
+                    
+                    try:
+                        usar_web = WebDriverWait(driver, 15).until(
+                            EC.element_to_be_clickable((By.XPATH, "//a[contains(@href,'web.whatsapp.com/accept')]")
+                        ))
+                        driver.execute_script("arguments[0].click();", usar_web)
+                        time.sleep(5)
+                    except:
+                        pass
+
+                    try:
+                        pop_up = WebDriverWait(driver, 30).until(
+                            EC.presence_of_element_located((By.XPATH, "//div[@role='dialog']"))
+                        )
+                        if pop_up:
+                            entrar_no_grupo = WebDriverWait(driver, 15).until(
+                                EC.element_to_be_clickable((By.XPATH, "//button//div[contains(text(),'Entrar no grupo')]")
+                            ))
+                            driver.execute_script("arguments[0].click();", entrar_no_grupo)
+                            time.sleep(5)
+                    except:
+                        pass
+                except:
+                    pass
+                
+                time.sleep(10)
+            except Exception as e:
+                print(f"Erro ao entrar no grupo {link}: {e}")
+
+        messagebox.showinfo("Concluído", "Todos os links foram processados!")
+        driver.quit()
+    except Exception as e:
+        messagebox.showerror("Erro", f"Ocorreu um erro: {e}")
+
+# Criar interface gráfica
+root = tk.Tk()
+root.title("Bot de Entrada em Grupos do WhatsApp")
+root.geometry("400x200")
+
+tk.Label(root, text="Escolha o arquivo Excel com os links:").pack(pady=10)
+
+entry_arquivo = tk.Entry(root, width=40)
+entry_arquivo.pack(pady=5)
+
+btn_escolher = tk.Button(root, text="Selecionar Arquivo", command=escolher_arquivo)
+btn_escolher.pack(pady=5)
+
+btn_iniciar = tk.Button(root, text="Iniciar Automação", command=iniciar_automacao, bg="green", fg="white")
+btn_iniciar.pack(pady=10)
+
+root.mainloop()
