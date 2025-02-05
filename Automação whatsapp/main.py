@@ -1,3 +1,8 @@
+"""
+Copyright © 2025 TechWolf. All rights reserved.
+Developed by TechWolf.
+"""
+
 import os
 import sys
 import time
@@ -42,17 +47,16 @@ def iniciar_automacao():
         return
     
     btn_iniciar.config(state=tk.DISABLED, bg="gray")  # Desabilita o botão e muda a cor
-    lbl_status.config(text="Automação em andamento...", fg="blue")
     btn_parar.config(state=tk.NORMAL, bg="red")  # Habilita o botão de parar
+    label_status.config(text="Automação em andamento...")
     thread = Thread(target=executar_bot, args=(arquivo,))
     thread.start()
 
 def parar_automacao():
     global stop_process
     stop_process = True
-    print("Automação interrompida pelo usuário.")
-    btn_parar.config(state=tk.DISABLED, bg="gray")  # Desabilita o botão
-    lbl_status.config(text="Automação interrompida.", fg="red")
+    btn_parar.config(state=tk.DISABLED, bg="gray")  # Desabilita o botão de parar
+    label_status.config(text="Encerrando automação, aguarde...")
 
 def executar_bot(arquivo):
     global stop_process
@@ -81,10 +85,7 @@ def executar_bot(arquivo):
         for link in tqdm(links, desc="Processando grupos", unit="grupo"):
             if stop_process:
                 print("Processo interrompido pelo usuário.")
-                driver.quit()
-                btn_iniciar.config(state=tk.NORMAL, bg="green")  # Habilita o botão novamente
-                lbl_status.config(text="Automação interrompida.", fg="red")
-                return
+                break
             
             try:
                 driver.get(link)
@@ -110,38 +111,49 @@ def executar_bot(arquivo):
                 
                 try:
                     entrar_no_grupo = WebDriverWait(driver, 7).until(
-                        EC.element_to_be_clickable((By.XPATH, "//button//div[contains(text(),'Entrar no grupo')]"))
-                    )
+                        EC.element_to_be_clickable((By.XPATH, "//button//div[contains(text(),'Entrar no grupo')]")
+                    ))
                     driver.execute_script("arguments[0].click();", entrar_no_grupo)
                     time.sleep(3)
                 except:
                     print("Botão 'Entrar no grupo' não encontrado.")
-                    
-                    try:
-                        enviar_pedido = WebDriverWait(driver, 5).until(
-                            EC.element_to_be_clickable((By.XPATH, "//button//div[contains(text(),'Enviar pedido')]"))
-                        )
-                        driver.execute_script("arguments[0].click();", enviar_pedido)
-                        print("Pedido de entrada no grupo enviado.")
-                        time.sleep(3)
-                    except:
-                        print("Botão 'Enviar pedido' não encontrado. Pulando grupo...")
-                
-                if stop_process:
-                    print("Processo interrompido pelo usuário.")
-                    driver.quit()
-                    btn_iniciar.config(state=tk.NORMAL, bg="green")  # Habilita o botão novamente
-                    lbl_status.config(text="Automação interrompida.", fg="red")
-                    return
                 
                 time.sleep(3)  # Tempo de respiro entre cada grupo
                 
             except Exception as e:
                 print(f"Erro ao entrar no grupo {link}: {e}")
-
-        messagebox.showinfo("Concluído", "Todos os links foram processados!")
+        
+        messagebox.showinfo("Concluído", "Automação encerrada!")
         driver.quit()
-        btn_iniciar.config(state=tk.NORMAL, bg="green")  # Habilita o botão novamente
-        lbl_status.config(text="Automação concluída!", fg="green")
     except Exception as e:
         messagebox.showerror("Erro", f"Ocorreu um erro: {e}")
+    finally:
+        btn_iniciar.config(state=tk.NORMAL, bg="green")
+        btn_parar.config(state=tk.DISABLED, bg="gray")
+        label_status.config(text="Automação finalizada.")
+
+# Criar interface gráfica
+root = tk.Tk()
+root.title("Bot de Entrada em Grupos do WhatsApp")
+root.geometry("400x300")
+
+tk.Label(root, text="Escolha o arquivo Excel com os links:").pack(pady=10)
+
+entry_arquivo = tk.Entry(root, width=40)
+entry_arquivo.pack(pady=5)
+
+btn_escolher = tk.Button(root, text="Selecionar Arquivo", command=escolher_arquivo)
+btn_escolher.pack(pady=5)
+
+btn_iniciar = tk.Button(root, text="Iniciar Automação", command=iniciar_automacao, bg="green", fg="white")
+btn_iniciar.pack(pady=10)
+
+btn_parar = tk.Button(root, text="Parar Automação", command=parar_automacao, bg="red", fg="white", state=tk.DISABLED)
+btn_parar.pack(pady=10)
+
+label_status = tk.Label(root, text="", fg="blue")
+label_status.pack(pady=10)
+
+tk.Label(root, text="Copyright © 2025 TechWolf. All rights reserved. Developed by TechWolf.", fg="gray").pack(pady=5)
+
+root.mainloop()
