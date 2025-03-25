@@ -1,5 +1,5 @@
 # Whatsapp-automation
-# 📖 Manual de Usuário - Bot de Entrada em Grupos do WhatsApp
+# 📖 Manual de Usuário - Bot de Entrada em Grupos do WhatsApp utilizando Selenium
 
 Este manual fornece instruções detalhadas sobre como utilizar o Bot de Entrada em Grupos do WhatsApp.
 
